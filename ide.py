@@ -1,10 +1,15 @@
 import os
-from tkinter import Tk, Text, Scrollbar, Menu, filedialog, StringVar, ttk, Listbox, END, SINGLE, messagebox
+from tkinter import Tk, Text, Scrollbar, Menu, filedialog, Listbox, END, SINGLE, messagebox
 import openai
-from sklearn.svm import LinearSVC
 from sklearn.pipeline import make_pipeline
-from sklearn.naive_bayes import MultinomialNB
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.naive_bayes import MultinomialNB
+from pygments import lex
+from pygments.lexers import PythonLexer
+from pygments.formatters import HtmlFormatter
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score
+
 class SimpleIDE:
     def __init__(self, root):
         self.root = root
@@ -27,8 +32,10 @@ class SimpleIDE:
 
         self.scroll = Scrollbar(root, orient="vertical", command=self.text.yview)
         self.scroll.pack(side="right", fill="y")
-
         self.text.configure(yscrollcommand=self.scroll.set)
+
+        # Configure the text widget to use the scrollbar
+        self.scroll.config(command=self.text.yview)
 
         self.menu = Menu(root)
         root.config(menu=self.menu)
@@ -44,8 +51,8 @@ class SimpleIDE:
 
         self.debug_menu = Menu(self.menu, tearoff=False)
         self.menu.add_cascade(label="Debug", menu=self.debug_menu)
-        # self.debug_menu.add_command(label="Debug with ChatGPT", command=self.debug_with_chatgpt)
-        self.debug_menu.add_command(label="Debug with AI", command=self.debug_code)
+        self.debug_menu.add_command(label="Debug with ChatGPT", command=self.debug_with_chatgpt)
+        self.debug_menu.add_command(label="Imagine Scenario", command=self.debug_opened_file)
 
         self.help_menu = Menu(self.menu, tearoff=False)
         self.menu.add_cascade(label="Help", menu=self.help_menu)
@@ -62,26 +69,131 @@ class SimpleIDE:
         # Set your OpenAI API key
         openai.api_key = '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'
 
-        # Add a menu item for debugging with ChatGPT
+        # Initialize an empty model
         self.model = make_pipeline(TfidfVectorizer(), MultinomialNB())
+        self.scenario_model = make_pipeline(TfidfVectorizer(), MultinomialNB())
+
+        # Training data and labels
+        self.training_data = []
+        self.labels = []
+        # Training Data (code snippets with errors)
+        training_code_1 = "for i in range(10):\n    print(i)"
+        training_code_2 = "print('Hello, World!'"
+        training_code_3 = "x = 5\nif x > 0:\n    print('Positive')"
+
+        # Labels (indicating whether there is a syntax error or not)
+        label_1 = 0  # No syntax error in training_code_1
+        label_2 = 1  # Syntax error in training_code_2
+        label_3 = 0  # No syntax error in training_code_3
+
+        # ... add more code snippets ...
+
+        # Append training data and labels to the lists
+        self.training_data.append(training_code_1)
+        self.labels.append(label_1)
+
+        self.training_data.append(training_code_2)
+        self.labels.append(label_2)
+
+        self.training_data.append(training_code_3)
+        self.labels.append(label_3)
+
+        # ... add more data ...
+
+        # Configure tags for syntax highlighting
+        self.configure_syntax_tags()
+
+
+        # Configure tags for syntax highlighting
+        self.configure_syntax_tags()
+
+    def configure_syntax_tags(self):
+    # Configure tags for different syntax elements
+        formatter = HtmlFormatter(style="friendly")  # You can change the style as needed
+        style_defs = formatter.get_style_defs()
+        self.text.tag_configure("pygments", lmargin1=10, background="white", font=("Courier New", 10))
+
+        # Apply styles to the text widget
+        self.text.insert("1.0", " ", ("pygments",) + (style_defs,))
+
+    def apply_syntax_highlighting(self):
+        code_content = self.text.get(1.0, "end-1c")
+        tokens = lex(code_content, PythonLexer())  # Change PythonLexer to the desired lexer
+        for token, value in tokens:
+            start_line, start_char = token.start
+            end_line, end_char = token.end
+            start_pos = f"{start_line}.{start_char}"
+            end_pos = f"{end_line}.{end_char}"
+            self.text.tag_add(str(token), start_pos, end_pos)
+
+    def debug_opened_file(self):
+            if self.current_file:
+                with open(self.current_file, "r") as file:
+                    file_content = file.read()
+                    scenario_output = self.generate_scenario(file_content)
+
+                    # Display the scenario output in a messagebox
+                    messagebox.showinfo("Scenario Output", scenario_output)
+            else:
+                messagebox.showinfo("Scenario Output", "No file is currently open.")
+
+    def generate_scenario(self, code_content):
+        # Set your OpenAI API key
+        openai.api_key = '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'
+
+        # Call OpenAI API for scenario generation
+        response = openai.Completion.create(
+            engine="text-davinci-003",  # Choose the appropriate engine
+            prompt=f"Given the following code:\n\n{code_content}\n\nDescribe a scenario for testing:",
+            max_tokens=200
+        )
+
+        # Extract the generated text from GPT-3.5 response
+        scenario_description = response.choices[0].text.strip()
+
+        return scenario_description
+
+
+            
 
     def debug_code(self):
-            # Fit the model with data before calling predict
-            if self.open_files:
-                training_data = [self.get_file_content(file) for file in self.open_files]
-                labels = [1 if "error" in content.lower() else 0 for content in training_data]
-                self.model.fit(training_data, labels)
+        # Fit the model with training data before calling predict
+        if self.training_data and self.labels:
+            self.model.fit(self.training_data, self.labels)
 
-                # Now you can call predict
-                code_text = self.text.get(1.0, "end-1c")
-                prediction = self.model.predict([code_text])
-                messagebox.showinfo("Debugging Result", f"Is there a syntax error? {'Yes' if prediction[0] == 1 else 'No'}")
-            else:
-                messagebox.showinfo("Debugging Result", "No training data available.")
+            # Now you can call predict
+            code_text = self.text.get(1.0, "end-1c")
+            prediction = self.model.predict([code_text])
+            messagebox.showinfo("Debugging Result", f"Is there a syntax error? {'Yes' if prediction[0] == 1 else 'No'}")
+        else:
+            messagebox.showinfo("Debugging Result", "No training data available.")
 
     def get_file_content(self, file_path):
         with open(file_path, "r") as file:
             return file.read()
+
+    def train_model(self):
+        # Check if there is training data
+        if not self.training_data or not self.labels:
+            messagebox.showinfo("Training Result", "No training data available.")
+            return
+
+        # Split the data into training and testing sets
+        train_texts, test_texts, train_labels, test_labels = train_test_split(
+            self.training_data, self.labels, test_size=0.2, random_state=42
+        )
+
+        # Fit the model on the training data
+        self.model.fit(train_texts, train_labels)
+
+        # Predict on the test set
+        test_predictions = self.model.predict(test_texts)
+
+        # Evaluate the model
+        accuracy = accuracy_score(test_labels, test_predictions)
+        messagebox.showinfo("Training Result", f"Model accuracy: {accuracy}")
+
+
     def debug_with_chatgpt(self):
         if self.current_file:
             with open(self.current_file, "r") as file:
@@ -148,10 +260,21 @@ class SimpleIDE:
             selected_file = self.open_files[selected_index]
             if selected_file and os.path.exists(selected_file):
                 with open(selected_file, "r") as file:
+                    code_content = file.read()
                     self.text.delete(1.0, "end")
-                    self.text.insert("insert", file.read())
+                    self.text.insert("insert", code_content)
+                    # Apply syntax highlighting
+                    self.apply_syntax_highlighting()
+
                 self.current_file = selected_file
                 self.set_window_title(os.path.basename(selected_file))
+
+    def apply_syntax_highlighting(self):
+        code_content = self.text.get(1.0, "end-1c")
+        tokens = lex(code_content, PythonLexer())  # Change PythonLexer to the desired lexer
+        for token, value in tokens:
+            self.text.tag_add(str(token), f"{token.start[0]}.{token.start[1]}", f"{token.end[0]}.{token.end[1]}")
+
 
     def update_documents_list(self):
         self.documents_listbox.delete(0, END)
@@ -168,4 +291,6 @@ class SimpleIDE:
 if __name__ == "__main__":
     root = Tk()
     app = SimpleIDE(root)
+    # Train the model (add this as needed)
+    app.train_model()
     root.mainloop()
