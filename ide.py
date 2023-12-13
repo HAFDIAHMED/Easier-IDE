@@ -52,7 +52,7 @@ class SimpleIDE:
         self.debug_menu = Menu(self.menu, tearoff=False)
         self.menu.add_cascade(label="Debug", menu=self.debug_menu)
         self.debug_menu.add_command(label="Debug with ChatGPT", command=self.debug_with_chatgpt)
-        self.debug_menu.add_command(label="Imagine Scenario", command=self.debug_opened_file)
+        self.debug_menu.add_command(label="Debug with AI", command=self.debug_opened_file)
 
         self.help_menu = Menu(self.menu, tearoff=False)
         self.menu.add_cascade(label="Help", menu=self.help_menu)
@@ -138,20 +138,21 @@ class SimpleIDE:
                 messagebox.showinfo("Scenario Output", "No file is currently open.")
 
     def generate_scenario(self, code_content):
-        # Set your OpenAI API key
-        openai.api_key = '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'
+        # Fit the scenario model with training data before calling predict
+        if self.training_data and self.labels:
+            self.scenario_model.fit(self.training_data, self.labels)
 
-        # Call OpenAI API for scenario generation
-        response = openai.Completion.create(
-            engine="text-davinci-003",  # Choose the appropriate engine
-            prompt=f"Given the following code:\n\n{code_content}\n\nDescribe a scenario for testing:",
-            max_tokens=200
-        )
+            # Now you can call predict for scenario generation
+            scenario_prediction = self.scenario_model.predict([code_content])
+            
+            # Map the label to a meaningful scenario description
+            if scenario_prediction[0] == 1:
+                return "Scenario: Syntax error is present in the code."
+            else:
+                return "Scenario: Code is error-free."
 
-        # Extract the generated text from GPT-3.5 response
-        scenario_description = response.choices[0].text.strip()
-
-        return scenario_description
+        else:
+            return "No training data available for scenario generation."
 
 
             
