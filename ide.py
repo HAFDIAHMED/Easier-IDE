@@ -1,5 +1,6 @@
 import os
 from tkinter import Tk, Text, Scrollbar, Menu, filedialog, StringVar, ttk, Listbox, END, SINGLE, messagebox
+import openai
 
 class SimpleIDE:
     def __init__(self, root):
@@ -50,6 +51,12 @@ class SimpleIDE:
 
         # Bind Ctrl+S to save_file
         self.root.bind('<Control-s>', lambda event: self.save_file())
+        # Set your OpenAI API key
+        openai.api_key = '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'
+
+        # Add a menu item for debugging with ChatGPT
+        self.file_menu.add_command(label="Debug with ChatGPT", command=self.debug_with_chatgpt)
+
 
     def set_window_title(self, name=None):
         title = "Easier IDE"
@@ -111,7 +118,27 @@ class SimpleIDE:
     def show_about(self):
         about_text = "Easier IDE\n\nA simple text editor with basic functionality.\nVersion: 1.0\n\nDeveloped by WebSolvus for debugging code with machine learning."
         messagebox.showinfo("About", about_text)
+    def debug_with_chatgpt(self):
+            if self.current_file:
+                with open(self.current_file, "r") as file:
+                    file_content = file.read()
+                    debug_output = self.call_chatgpt(file_content)
 
+                    # Display the ChatGPT debug output in a messagebox
+                    messagebox.showinfo("Debug Output", debug_output)
+
+    def call_chatgpt(self, code):
+        # Call OpenAI API for debugging
+        response = openai.Completion.create(
+            engine="text-davinci-002",  # You can use other engines
+            prompt=code,
+            max_tokens=100
+        )
+
+        # Extract the generated text from ChatGPT response
+        debug_output = response.choices[0].text.strip()
+
+        return debug_output
 
 if __name__ == "__main__":
     root = Tk()
