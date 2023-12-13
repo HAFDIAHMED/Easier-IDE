@@ -72,7 +72,12 @@ class SimpleIDE:
         # Initialize an empty model
         self.model = make_pipeline(TfidfVectorizer(), MultinomialNB())
         self.scenario_model = make_pipeline(TfidfVectorizer(), MultinomialNB())
-
+        # Create an output area at the bottom
+        self.output_area = Text(root, wrap="word", height=5, state="disabled")
+        self.output_area.pack(side="bottom", fill="x")
+        self.output_area_title = "Imagined Scenario"
+        self.output_area.insert("insert", f"{self.output_area_title}\n\n")
+        self.output_area.config(state="disabled")
         # Training data and labels
         self.training_data = []
         self.labels = []
@@ -126,17 +131,6 @@ class SimpleIDE:
             end_pos = f"{end_line}.{end_char}"
             self.text.tag_add(str(token), start_pos, end_pos)
 
-    def debug_opened_file(self):
-            if self.current_file:
-                with open(self.current_file, "r") as file:
-                    file_content = file.read()
-                    scenario_output = self.generate_scenario(file_content)
-
-                    # Display the scenario output in a messagebox
-                    messagebox.showinfo("Scenario Output", scenario_output)
-            else:
-                messagebox.showinfo("Scenario Output", "No file is currently open.")
-
     def generate_scenario(self, code_content):
         # Fit the scenario model with training data before calling predict
         if self.training_data and self.labels:
@@ -144,15 +138,32 @@ class SimpleIDE:
 
             # Now you can call predict for scenario generation
             scenario_prediction = self.scenario_model.predict([code_content])
-            
+
             # Map the label to a meaningful scenario description
             if scenario_prediction[0] == 1:
-                return "Scenario: Syntax error is present in the code."
+                scenario_output = "Scenario: Syntax error is present in the code."
             else:
-                return "Scenario: Code is error-free."
+                scenario_output = "Scenario: Code is error-free."
 
         else:
-            return "No training data available for scenario generation."
+            scenario_output = "No training data available for scenario generation."
+
+        # Insert the scenario output into the output area
+        self.output_area.config(state="normal")  # Enable editing
+        self.output_area.delete(1.0, "end")  # Clear existing content
+        self.output_area.insert("insert", scenario_output)  # Insert new content
+        self.output_area.config(state="disabled")  # Disable editing
+
+    def debug_opened_file(self):
+        if self.current_file:
+            with open(self.current_file, "r") as file:
+                file_content = file.read()
+                self.generate_scenario(file_content)
+        else:
+            self.output_area.config(state="normal")
+            self.output_area.delete(1.0, "end")
+            self.output_area.insert("insert", "No file is currently open.")
+            self.output_area.config(state="disabled")
 
 
             
