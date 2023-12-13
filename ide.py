@@ -1,5 +1,5 @@
 import os
-from tkinter import Tk, Text, Scrollbar, Menu, filedialog, StringVar, ttk, Listbox, END, SINGLE
+from tkinter import Tk, Text, Scrollbar, Menu, filedialog, StringVar, ttk, Listbox, END, SINGLE, messagebox
 
 class SimpleIDE:
     def __init__(self, root):
@@ -13,6 +13,10 @@ class SimpleIDE:
 
         self.documents_listbox = Listbox(root, selectmode=SINGLE)
         self.documents_listbox.pack(side="left", fill="y")
+
+        self.documents_scroll = Scrollbar(root, orient="vertical", command=self.documents_listbox.yview)
+        self.documents_scroll.pack(side="left", fill="y")
+        self.documents_listbox.configure(yscrollcommand=self.documents_scroll.set)
 
         self.text = Text(root, wrap="word", undo=True)
         self.text.pack(expand="yes", fill="both")
@@ -33,6 +37,10 @@ class SimpleIDE:
         self.file_menu.add_command(label="Save As", command=self.save_as_file)
         self.file_menu.add_separator()
         self.file_menu.add_command(label="Exit", command=self.exit_app)
+
+        self.help_menu = Menu(self.menu, tearoff=False)
+        self.menu.add_cascade(label="Help", menu=self.help_menu)
+        self.help_menu.add_command(label="About", command=self.show_about)
 
         self.open_files = []  # List to store open file paths
         self.current_file = None
@@ -99,6 +107,11 @@ class SimpleIDE:
 
     def exit_app(self):
         self.root.destroy()
+
+    def show_about(self):
+        about_text = "Easier IDE\n\nA simple text editor with basic functionality.\nVersion: 1.0\n\nDeveloped by WebSolvus for debugging code with machine learning."
+        messagebox.showinfo("About", about_text)
+
 
 if __name__ == "__main__":
     root = Tk()
